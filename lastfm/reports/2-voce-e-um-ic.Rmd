@@ -169,3 +169,7 @@ b = bootstrap2(filtered,
 
 CI.percentile(b, probs = c(.05, .95))
 ```
+
+### Conclusão
+
+Apesar de uma pequena diferença entre os resultados obtidos com o uso da biblioteca e o método manual implementado, principalmente no que se diz respeito da segunda pergunta, foi possível observar que a proporção de artistas novos escutados é pequena, além de que existe uma correlação fraca entre a mediana_pop e essa proporção para aqueles cuja mediana_pop > 5.
