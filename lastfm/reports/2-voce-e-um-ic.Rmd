@@ -27,6 +27,7 @@ set.seed(12345)
 lastfm = read_csv(here::here("data/experimento-lastfm.csv"), 
                   col_types = cols(.default = col_double(), 
                                    user = col_character()))
+lastfm
 
 lastfm = lastfm %>% 
   sample_n(300) %>% 
@@ -48,7 +49,7 @@ lastfm %>% ggplot(aes(old)) + geom_histogram(binwidth = 10)
 ```
 
 ```{r }
-repeticoes = 4000 # pelo menos 2000, mas mais não faz mal.
+repeticoes = 4000
 
 news_prop <- function(x) {
   bootstrap <- sample_n(x, size = NROW(x), replace = TRUE)
@@ -57,12 +58,114 @@ news_prop <- function(x) {
   return(news_p)
 }
 
+theta <- function(x) {
+    m = x %>% mutate(p=(news/(news+old)))
+    news_p = mean(m %>% pull(p))
+    return(news_p)
+}
+
 set.seed(1212)
 
 # A REAMOSTRAGEM
 reamostragens = tibble(i = 1:repeticoes) %>% 
   mutate(theta_c_s = map_dbl(i, ~ news_prop(lastfm)))
 
+reamostragens
+
+theta_c = theta(lastfm)
+theta_c
+```
+
+```{r}
+reamostragens %>%
+  ggplot(aes(x = theta_c_s)) +
+  geom_histogram(colour = "darkorange", fill = "white")
+
+reamostragens %>%
+  ggplot(aes(x = theta_c_s - theta_c)) +
+  geom_histogram(colour = "darkblue", fill = "white")
+```
+
+```{r}
+intervalo = reamostragens %>% 
+  mutate(erro = theta_c_s - theta_c) %>% 
+  summarise(erro_i = quantile(erro, .05), 
+            erro_s = quantile(erro, .95))
+
+intervalo
+```
+
+```{r}
+intervalo = intervalo %>% 
+  mutate(valor_i = theta_c + erro_i, 
+         valor_s = theta_c + erro_s)
+
+intervalo
+```
+
+```{r }
+
+corr <- function(x) {
+  bootstrap <- sample_n(x, size = NROW(x), replace = TRUE)
+  bootstrap = bootstrap %>% mutate(corr=cor(mediana_pop, log10(news/(news+old)), method="pearson"))
+  corr_m = mean(bootstrap %>% pull(corr))
+  return(corr_m)
+}
+
+theta_corr <- function(x) {
+    m = x %>% mutate(corr=cor(mediana_pop, log10(news/(news+old)), method="pearson"))
+    corr_m = mean(m %>% pull(corr))
+    return(corr_m)
+}
+
+filtered = lastfm %>% filter(mediana_pop > 5)
+
+reamostragens = tibble(i = 1:repeticoes) %>% 
+    mutate(theta_c_s = map_dbl(i, ~ corr(filtered)))
+
+reamostragens
+
+theta_c = theta_corr(filtered)
+theta_c
+
+reamostragens %>%
+  ggplot(aes(x = theta_c_s)) +
+  geom_histogram(colour = "darkorange", fill = "white")
+
+reamostragens %>%
+  ggplot(aes(x = theta_c_s - theta_c)) +
+  geom_histogram(colour = "darkblue", fill = "white")
+
+intervalo = reamostragens %>% 
+  mutate(erro = theta_c_s - theta_c) %>% 
+  summarise(erro_i = quantile(erro, .05), 
+            erro_s = quantile(erro, .95))
+
+intervalo
+
+intervalo = intervalo %>% 
+  mutate(valor_i = theta_c + erro_i, 
+         valor_s = theta_c + erro_s)
+
+intervalo
+```
+```{r }
+library(resample)
+
+b = bootstrap2(lastfm,
+               treatment=c("news_p", "old"),
+               (news/(news+old)))
+
+CI.percentile(b, probs = c(.05, .95))
 
 ```
 
+```{r }
+library(resample)
+
+b = bootstrap2(filtered,
+               treatment=c("mediana_p", "news_p"),
+               cor(mediana_pop, log10((news/(news+old))), method="pearson"))
+
+CI.percentile(b, probs = c(.05, .95))
+```
